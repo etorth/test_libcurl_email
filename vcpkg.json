@@ -1,0 +1,12 @@
+{
+  "name": "test-libcurl-email",
+  "version-string": "0.1.0",
+  "dependencies": [
+    {
+      "name": "curl",
+      "features": [
+        "ssl"
+      ]
+    }
+  ]
+}

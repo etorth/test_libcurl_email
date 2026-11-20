@@ -1,0 +1,122 @@
+name: Build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  native-linux:
+    name: Native Linux
+    runs-on: ubuntu-26.04
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Cache vcpkg binary archives
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: native-linux-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            native-linux-vcpkg-
+
+      - name: Install build tools
+        run: |
+          sudo apt update
+          sudo apt install -y software-properties-common
+          sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
+          sudo apt update
+          sudo apt install -y build-essential cmake curl g++-16 gcc-16 git ninja-build perl pkg-config python3 tar unzip zip
+
+      - name: Build and install
+        env:
+          VCPKG_BINARY_SOURCES: clear;files,${{ runner.temp }}/vcpkg-binary-cache,readwrite
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/vcpkg-binary-cache"
+          python3 ./build.py --build-dir "$RUNNER_TEMP/b_linux" --c-compiler gcc-16 --cxx-compiler g++-16 --parallel 4
+
+      - name: Verify
+        run: |
+          set -euo pipefail
+          exe="$RUNNER_TEMP/b_linux/install/bin/send_email"
+          ldd "$exe"
+          "$exe" || test $? -eq 1
+
+      - name: Upload Linux install tree
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: send_email-linux
+          path: ${{ runner.temp }}/b_linux/install
+          if-no-files-found: error
+          retention-days: 7
+
+  mingw-ucrt64:
+    name: MinGW UCRT64
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: msys2 {0}
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Cache vcpkg binary archives
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-cache
+          key: mingw-ucrt64-vcpkg-${{ hashFiles('vcpkg.json', 'vcpkg-configuration.json') }}
+          restore-keys: |
+            mingw-ucrt64-vcpkg-
+
+      - name: Set up MSYS2 UCRT64
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: UCRT64
+          update: true
+          install: >-
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-git
+            mingw-w64-ucrt-x86_64-cmake
+            mingw-w64-ucrt-x86_64-ninja
+            mingw-w64-ucrt-x86_64-pkgconf
+            mingw-w64-ucrt-x86_64-python
+
+      - name: Build and install
+        env:
+          VCPKG_DEFAULT_TRIPLET: x64-mingw-static
+          VCPKG_DEFAULT_HOST_TRIPLET: x64-mingw-static
+          VCPKG_BINARY_SOURCES: clear;files,${{ runner.temp }}/vcpkg-binary-cache,readwrite
+        run: |
+          gcc --version
+          mkdir -p "$RUNNER_TEMP/vcpkg-binary-cache"
+          python3 ./build.py --build-dir "$RUNNER_TEMP/b_windows" --parallel 4
+
+      - name: Verify
+        run: |
+          set -euo pipefail
+          exe="$RUNNER_TEMP/b_windows/install/bin/send_email.exe"
+          objdump -p "$exe" | grep 'DLL Name'
+          "$exe" || test $? -eq 1
+
+      - name: Upload MinGW install tree
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: send_email-windows
+          path: ${{ runner.temp }}/b_windows/install
+          if-no-files-found: error
+          retention-days: 7

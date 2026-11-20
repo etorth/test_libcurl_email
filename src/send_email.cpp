@@ -86,6 +86,8 @@ int main(int argc, char *argv[])
     curl_easy_setopt(curl, CURLOPT_USERNAME, from.c_str());
     curl_easy_setopt(curl, CURLOPT_PASSWORD, password);
     curl_easy_setopt(curl, CURLOPT_USE_SSL, static_cast<long>(CURLUSESSL_ALL));
+    // send credentials with the AUTH command; QQ mail fails the two-step "AUTH PLAIN" exchange
+    curl_easy_setopt(curl, CURLOPT_SASL_IR, 1L);
     curl_easy_setopt(curl, CURLOPT_MAIL_FROM, mailFrom.c_str());
 
     curl_slist *rcpt = nullptr;

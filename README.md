@@ -53,3 +53,6 @@ Environment variables:
 | `SMTP_PASSWORD` | Required. SMTP password / QQ authorization code          |
 | `SMTP_URL`      | Optional. Default `smtps://smtp.qq.com:465`              |
 | `SMTP_VERBOSE`  | Optional. Set to any value to print the SMTP session     |
+
+**Warning:** `SMTP_VERBOSE` output includes the `AUTH PLAIN` line, which is just base64 of your
+username and password. Don't share it; if you did, regenerate the QQ authorization code.

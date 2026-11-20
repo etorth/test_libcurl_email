@@ -21,6 +21,8 @@ target_link_libraries(send_email PRIVATE CURL::libcurl)
 # no runtime dependency on the libstdc++/libgcc of the build machine
 if(MINGW)
     target_link_options(send_email PRIVATE -static -static-libgcc -static-libstdc++)
+    # std::print's Windows console support lives in libstdc++exp on MinGW
+    target_link_libraries(send_email PRIVATE stdc++exp)
 else()
     target_link_options(send_email PRIVATE -static-libgcc -static-libstdc++)
 endif()
